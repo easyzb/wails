@@ -56,4 +56,12 @@ tasks:
     cmds:
       - git fetch upstream --tags
       - git rebase {{.CLI_ARGS}}
+  tag:
+    cmds:
+      - git tag -a {{.CLI_ARGS}} -m "tag {{.CLI_ARGS}}"
+      - git push origin {{.CLI_ARGS}}
+  tag:remove:
+    cmds:
+      - git tag -d {{.CLI_ARGS}}
+      - git push origin :refs/tags/{{.CLI_ARGS}}
   # -- End Add by @easyzb
