@@ -140,6 +140,20 @@ type WebviewWindowOptions struct {
 	// Effective on Windows and macOS only; no-op on Linux.
 	// Best-effort protection with platform-specific caveats (see docs).
 	ContentProtectionEnabled bool
+
+	// -- Add by @easyzb
+	// WebviewUserDataPath specifies the path to the webview user data directory.
+	// If not specified, the default path will be used.
+	WebviewUserDataPath string
+
+	// WebviewRequestHeader specifies the headers to be sent with each request.
+	// If not specified, no headers will be sent.
+	WebviewRequestHeader map[string]string
+
+	// WebviewRequestHook specifies a function to be called before each request.
+	// If not specified, no hook will be called.
+	WebviewRequestHook func(requestURL string) bool
+	// -- End Add by @easyzb
 }
 
 type RGBA struct {

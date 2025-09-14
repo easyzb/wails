@@ -51,7 +51,9 @@ tasks:
       - task: v3:format:md
       # - task: v3:website:format:md
 
+  # -- Add by @easyzb
   tag:up:
     cmds:
       - git fetch upstream --tags
       - git rebase {{.CLI_ARGS}}
+  # -- End Add by @easyzb

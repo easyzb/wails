@@ -118,7 +118,7 @@ func (w *windowsWebviewWindow) paste() {
 			try {
 				// Try to read all available formats
 				const clipboardItems = await navigator.clipboard.read();
-				
+
 				for (const clipboardItem of clipboardItems) {
 					// Check for image types
 					for (const type of clipboardItem.types) {
@@ -129,7 +129,7 @@ func (w *windowsWebviewWindow) paste() {
 							return;
 						}
 					}
-					
+
 					// If no image found, try text
 					if (clipboardItem.types.includes('text/plain')) {
 						const text = await navigator.clipboard.readText();
@@ -1807,23 +1807,60 @@ func (w *windowsWebviewWindow) processRequest(
 	req *edge.ICoreWebView2WebResourceRequest,
 	args *edge.ICoreWebView2WebResourceRequestedEventArgs,
 ) {
+	// -- Add by @easyzb
+	// Get the request
+	uri, _ := req.GetUri()
+	opts := w.parent.options
+	// -- End Add by @easyzb
 
 	// Setting the UserAgent on the CoreWebView2Settings clears the whole default UserAgent of the Edge browser, but
 	// we want to just append our ApplicationIdentifier. So we adjust the UserAgent for every request.
 	if reqHeaders, err := req.GetHeaders(); err == nil {
-		useragent, _ := reqHeaders.GetHeader(assetserver.HeaderUserAgent)
-		useragent = strings.Join([]string{useragent, assetserver.WailsUserAgentValue}, " ")
-		err = reqHeaders.SetHeader(assetserver.HeaderUserAgent, useragent)
-		if err != nil {
-			globalApplication.fatal("error setting UserAgent header: %w", err)
+		// -- Comment by @easyzb
+		// useragent, _ := reqHeaders.GetHeader(assetserver.HeaderUserAgent)
+		// useragent = strings.Join([]string{useragent, assetserver.WailsUserAgentValue}, " ")
+		// err = reqHeaders.SetHeader(assetserver.HeaderUserAgent, useragent)
+		// if err != nil {
+		// 	globalApplication.fatal("error setting UserAgent header: %w", err)
+		// }
+		// -- End Comment by @easyzb
+		// -- Add by @easyzb
+		const tagSecChUa = "Sec-Ch-Ua"
+		values, _ := reqHeaders.GetHeader(tagSecChUa)
+		if values != "" {
+			modified := false
+			v := strings.Split(values, ",")
+			newSecChUa := make([]string, 0, len(v))
+			for _, s := range v {
+				if strings.Contains(s, "WebView2") {
+					modified = true
+					continue
+				}
+				newSecChUa = append(newSecChUa, s)
+			}
+			if modified {
+				if err = reqHeaders.SetHeader(tagSecChUa, strings.Join(newSecChUa, ", ")); err != nil {
+					globalApplication.fatal("error setting Sec-Ch-Ua header: %w", err)
+				}
+			}
 		}
-		err = reqHeaders.SetHeader(
-			webViewRequestHeaderWindowId,
-			strconv.FormatUint(uint64(w.parent.id), 10),
-		)
-		if err != nil {
-			globalApplication.fatal("error setting WindowId header: %w", err)
+		for k, v := range opts.WebviewRequestHeader {
+			if err = reqHeaders.SetHeader(k, v); err != nil {
+				globalApplication.fatal("error setting header %s: %w", k, err)
+			}
 		}
+		// -- End Add by @easyzb
+		// -- Modify by @easyzb
+		if strings.Contains(uri, "/wails") {
+			err = reqHeaders.SetHeader(
+				webViewRequestHeaderWindowId,
+				strconv.FormatUint(uint64(w.parent.id), 10),
+			)
+			if err != nil {
+				globalApplication.fatal("error setting WindowId header: %w", err)
+			}
+		}
+		// -- End Modify by @easyzb
 		err = reqHeaders.Release()
 		if err != nil {
 			globalApplication.fatal("error releasing headers: %w", err)
@@ -1836,20 +1873,26 @@ func (w *windowsWebviewWindow) processRequest(
 	}
 
 	//Get the request
-	uri, _ := req.GetUri()
+	// -- Comment by @easyzb
+	// uri, _ := req.GetUri()
+	// -- End Comment by @easyzb
 	reqUri, err := url.ParseRequestURI(uri)
 	if err != nil {
 		globalApplication.error("unable to parse request uri: uri='%s' error='%w'", uri, err)
 		return
 	}
 
-	if reqUri.Scheme != "http" {
-		// Let the WebView2 handle the request with its default handler
-		return
-	} else if !strings.HasPrefix(reqUri.Host, "wails.localhost") {
-		// Let the WebView2 handle the request with its default handler
-		return
+	// -- Modify by @easyzb
+	if opts.WebviewRequestHook == nil || !opts.WebviewRequestHook(uri) {
+		if reqUri.Scheme != "http" {
+			// Let the WebView2 handle the request with its default handler
+			return
+		} else if !strings.HasPrefix(reqUri.Host, "wails.localhost") {
+			// Let the WebView2 handle the request with its default handler
+			return
+		}
 	}
+	// -- End Modify by @easyzb
 
 	webviewRequest, err := webview.NewRequest(
 		w.chromium.Environment(),
@@ -1904,6 +1947,11 @@ func (w *windowsWebviewWindow) setupChromium() {
 	}
 
 	chromium.DataPath = globalApplication.options.Windows.WebviewUserDataPath
+	// -- Add by @easyzb
+	if w.parent != nil && w.parent.options.WebviewUserDataPath != "" {
+		chromium.DataPath = w.parent.options.WebviewUserDataPath
+	}
+	// -- End Add by @easyzb
 	chromium.BrowserPath = globalApplication.options.Windows.WebviewBrowserPath
 
 	if opts.Permissions != nil {
@@ -2088,6 +2136,11 @@ func (w *windowsWebviewWindow) setupChromium() {
 			globalApplication.handleFatalError(err)
 		}
 		w.webviewNavigationCompleted = false
+		// -- Add by @easyzb
+		if w.parent.options.JS != "" {
+			chromium.Init(w.parent.options.JS)
+		}
+		// -- End Add by @easyzb
 		chromium.Navigate(startURL)
 	}
 
