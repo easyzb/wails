@@ -50,3 +50,8 @@ tasks:
       # - task: v2:website:format
       - task: v3:format:md
       # - task: v3:website:format:md
+
+  tag:up:
+    cmds:
+      - git fetch upstream --tags
+      - git rebase {{.CLI_ARGS}}
