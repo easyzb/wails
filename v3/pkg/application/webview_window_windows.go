@@ -1884,12 +1884,14 @@ func (w *windowsWebviewWindow) processRequest(
 
 	// -- Modify by @easyzb
 	if opts.WebviewRequestHook == nil || !opts.WebviewRequestHook(uri) {
-		if reqUri.Scheme != "http" {
-			// Let the WebView2 handle the request with its default handler
-			return
-		} else if !strings.HasPrefix(reqUri.Host, "wails.localhost") {
-			// Let the WebView2 handle the request with its default handler
-			return
+		if !strings.HasPrefix(reqUri.Path, "/wails/") {
+			if reqUri.Scheme != "http" {
+				// Let the WebView2 handle the request with its default handler
+				return
+			} else if !strings.HasPrefix(reqUri.Host, "wails.localhost") {
+				// Let the WebView2 handle the request with its default handler
+				return
+			}
 		}
 	}
 	// -- End Modify by @easyzb
